@@ -3,17 +3,20 @@ import pygame as pg
 pg.init()
 
 #constants, init
+
 G = 6.6743e-11
-dt = 10000
-SCALE = 1e9
+dt = 86400 #seconds between frames
+SCALE = 1.4e10
 FPS = 360
 bodies = []
 
+font = pg.font.SysFont("Arial", 20)
 screen_width, screen_height = 720, 720
 screen = pg.display.set_mode([screen_width, screen_height])
 trails = pg.Surface((screen_width, screen_height))
 trails.fill('black')
 trails.set_alpha(5)
+sim_time = 0 #seconds
 
 #classes, functions
 class Body:
@@ -60,41 +63,99 @@ def draw_bodies(bodies):
 
 #bodies
 #source:
-#https://www.milliganphysics.com/Physics/SSysData.htm
+#chatgpt
 #or just made up :)
 
+# Sun
 sun = Body(
-    mass=2e30,
-    pos=np.zeros(2),
-    vel=np.zeros(2),
+    mass=1.989e30,
+    pos=np.array([0.0, 0.0]),
+    vel=np.array([0.0, 0.0]),
     acc=np.zeros(2),
     name='Sun',
-    color='yellow'
+    color=(255, 255, 0)
 )
+
+# Mercury
+mercury = Body(
+    mass=3.3e23,
+    pos=np.array([5.79e10, 0.0]),
+    vel=np.array([0.0, 47_400]),
+    acc=np.zeros(2),
+    name='Mercury',
+    color=(150, 150, 150)
+)
+
+# Venus
+venus = Body(
+    mass=4.87e24,
+    pos=np.array([1.082e11, 0.0]),
+    vel=np.array([0.0, 35_020]),
+    acc=np.zeros(2),
+    name='Venus',
+    color=(255, 200, 150)
+)
+
+# Earth
 earth = Body(
-    mass=6e24, 
-    pos=np.array([1.5e11, 0]), 
-    vel = np.array([0, 25_000]), #30000
-    acc=np.zeros(2), 
-    name = 'Earth', 
-    color="green"
+    mass=5.97e24,
+    pos=np.array([1.496e11, 0.0]),
+    vel=np.array([0.0, 29_780]),
+    acc=np.zeros(2),
+    name='Earth',
+    color=(0, 150, 255)
 )
-planet3 = Body(
-    mass=6e24, 
-    pos=np.array([1.5e11, 1.5e11]), 
-    vel = np.array([0, 20_000]),
-    acc=np.zeros(2), 
-    name = '3', 
-    color="blue"
+
+# Mars
+mars = Body(
+    mass=6.42e23,
+    pos=np.array([2.279e11, 0.0]),
+    vel=np.array([0.0, 24_130]),
+    acc=np.zeros(2),
+    name='Mars',
+    color=(255, 100, 50)
 )
-planet4 = Body(
-    mass=6e28, 
-    pos=np.array([-1e11, -1e11]), 
-    vel = np.array([0, 25_000]),
-    acc=np.zeros(2), 
-    name = '4', 
-    color="red"
+
+# Jupiter
+jupiter = Body(
+    mass=1.898e27,
+    pos=np.array([7.785e11, 0.0]),
+    vel=np.array([0.0, 13_070]),
+    acc=np.zeros(2),
+    name='Jupiter',
+    color=(255, 150, 100)
 )
+
+# Saturn
+saturn = Body(
+    mass=5.683e26,
+    pos=np.array([1.433e12, 0.0]),
+    vel=np.array([0.0, 9_680]),
+    acc=np.zeros(2),
+    name='Saturn',
+    color=(255, 220, 180)
+)
+
+# Uranus
+uranus = Body(
+    mass=8.681e25,
+    pos=np.array([2.877e12, 0.0]),
+    vel=np.array([0.0, 6_800]),
+    acc=np.zeros(2),
+    name='Uranus',
+    color=(100, 200, 255)
+)
+
+# Neptune
+neptune = Body(
+    mass=1.024e26,
+    pos=np.array([4.503e12, 0.0]),
+    vel=np.array([0.0, 5_430]),
+    acc=np.zeros(2),
+    name='Neptune',
+    color=(50, 100, 255)
+)
+
 #main pygame loop
 clock = pg.time.Clock()
 running = True
@@ -110,6 +171,26 @@ while running:
     apply_acc(bodies)
     update(bodies, dt)
 
+    #timer
+    sim_time += dt
+    days = (sim_time // 86400 ) % 365
+    hours = (sim_time % 86400) // 3600
+    minutes = (sim_time % 3600) // 60
+    seconds = sim_time % 60
+    years = sim_time//86400//365
+    timer_text = f"{years}y {days}d {hours:02}h {minutes:02}m {seconds:02}s"
+    text_surf = font.render(timer_text, True, (255, 255, 255))
+
+    timer_rect = pg.Rect(
+        screen_width - text_surf.get_width() - 10,
+        10,
+        text_surf.get_width(),
+        text_surf.get_height()
+    )
+    pg.draw.rect(screen, (0, 0, 0), timer_rect)
+
+    #draw
     draw_bodies(bodies)
+    screen.blit(text_surf, (screen_width - text_surf.get_width() - 10, 10))
     pg.display.flip()
     clock.tick(FPS)

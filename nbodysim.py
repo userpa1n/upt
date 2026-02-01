@@ -19,7 +19,7 @@ screen_width, screen_height = 720, 720
 screen = pg.display.set_mode([screen_width, screen_height])
 trails = pg.Surface((screen_width, screen_height))
 trails.fill('black')
-trails.set_alpha(5)
+#trails.set_alpha(5)
 sim_time = 0 #seconds
 
 #classes, functions
@@ -62,6 +62,9 @@ def draw_bodies(bodies):
         r = 5
         pg.draw.circle(screen, body.color, (x, y), r)
         pg.draw.circle(trails, body.color, (x, y), 1)
+        name_surf = font.render(body.name, True, (255,255,255))
+        screen.blit(name_surf, (x+8, y-8))
+
 
     
 

@@ -9,6 +9,10 @@ dt = 86400 #seconds between frames
 SCALE = 1.4e10
 FPS = 360
 bodies = []
+ZOOM_SPEED = 1/(5)
+MIN_SCALE = 1e9
+MAX_SCALE = 1.4e10
+
 
 font = pg.font.SysFont("Arial", 20)
 screen_width, screen_height = 720, 720
@@ -61,10 +65,6 @@ def draw_bodies(bodies):
 
     
 
-#bodies
-#source:
-#chatgpt
-#or just made up :)
 
 # Sun
 sun = Body(
@@ -166,7 +166,14 @@ while running:
     for event in pg.event.get():
         if event.type == pg.QUIT:
             running = False
-    
+        #zoom
+        elif event.type == pg.MOUSEWHEEL:
+            if event.y > 0:
+                SCALE *= ZOOM_SPEED
+            elif event.y < 0:
+                SCALE /= ZOOM_SPEED
+            SCALE = max(MIN_SCALE, min(MAX_SCALE, SCALE))
+            trails.fill('black') #clear trails
     #physics
     apply_acc(bodies)
     update(bodies, dt)

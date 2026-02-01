@@ -1,6 +1,8 @@
 import numpy as np
 import pygame as pg
 pg.init()
+#figure out max speed and error and energy and stuff
+
 
 #constants, init
 
@@ -12,7 +14,7 @@ bodies = []
 ZOOM_SPEED = 1/(5)
 MIN_SCALE = 1e9
 MAX_SCALE = 1.4e10
-
+SPEED_CHANGE = 1.5
 
 font = pg.font.SysFont("Arial", 20)
 screen_width, screen_height = 720, 720
@@ -177,30 +179,44 @@ while running:
                 SCALE /= ZOOM_SPEED
             SCALE = max(MIN_SCALE, min(MAX_SCALE, SCALE))
             trails.fill('black') #clear trails
+        #speed
+        elif event.type == pg.KEYDOWN:
+            if event.key == pg.K_LEFT:
+                dt /= SPEED_CHANGE
+            elif event.key == pg.K_RIGHT:
+                dt *= SPEED_CHANGE
     #physics
     apply_acc(bodies)
     update(bodies, dt)
 
     #timer
     sim_time += dt
-    days = (sim_time // 86400 ) % 365
-    hours = (sim_time % 86400) // 3600
-    minutes = (sim_time % 3600) // 60
-    seconds = sim_time % 60
-    years = sim_time//86400//365
-    timer_text = f"{years}y {days}d {hours:02}h {minutes:02}m {seconds:02}s"
-    text_surf = font.render(timer_text, True, (255, 255, 255))
+    days = int((sim_time // 86400 ) % 365)
+    hours = int((sim_time % 86400) // 3600)
+    minutes = int((sim_time % 3600) // 60)
+    seconds = int(sim_time % 60)
+    years = int(sim_time//86400//365)
 
-    timer_rect = pg.Rect(
-        screen_width - text_surf.get_width() - 10,
-        10,
-        text_surf.get_width(),
-        text_surf.get_height()
-    )
-    pg.draw.rect(screen, (0, 0, 0), timer_rect)
+    timer_text = f"{years}y {days}d {hours:02}h {minutes:02}m {seconds:02}s"
+    speed_text = f'Speed: {dt} sec/frame'
+    fps_text = f'FPS: {FPS}'
+
+
+    timer_surf = font.render(timer_text, True, (255, 255, 255))
+    speed_surf = font.render(speed_text, True, (255, 255, 255))
+    fps_surf = font.render(fps_text, True, (255, 255, 255))
+
 
     #draw
     draw_bodies(bodies)
-    screen.blit(text_surf, (screen_width - text_surf.get_width() - 10, 10))
+    hud = pg.Surface((300, 70))  
+    hud.fill((0,0,0))             # black background
+    hud.set_alpha(200)            # semi-transparent
+    hud.blit(timer_surf, (0,0))
+    hud.blit(speed_surf, (0,20))
+    hud.blit(fps_surf, (0,40))
+    screen.blit(hud, (0, 10))
+
+
     pg.display.flip()
     clock.tick(FPS)

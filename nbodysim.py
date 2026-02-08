@@ -2,6 +2,13 @@ import numpy as np
 import pygame as pg
 pg.init()
 #figure out max speed and error and energy and stuff
+#restart
+#zoom to cursor
+#presets and ui good and gui and ux and stuff
+#camera on center of mass
+#floating point in ui
+#click planet to see info
+#add planet(into orbit)
 
 
 #constants, init

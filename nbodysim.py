@@ -39,7 +39,7 @@ class Body:
         self.name = name
         self.color = color
         self.trail = []
-        self.maxtrailsize = 500 #too small for further planets
+        self.maxtrailsize = 1000
         bodies.append(self)
 
 
@@ -59,14 +59,16 @@ def apply_acc(bodies):
                 continue
             body.acc += calculate_force(body, body2) / body.mass # a = f/m
 
-def update(bodies, dt):
+def update(bodies, dt, sim_time):
     for body in bodies:
         body.vel += body.acc*dt
         body.pos += body.vel*dt
         #save trail info
-        body.trail.append(body.pos.copy())
-        if len(body.trail) > body.maxtrailsize:
-            body.trail.pop(0)
+        #days = int((sim_time // 86400 ) % 365)
+        if len(body.trail) == 0 or np.linalg.norm(body.pos - body.trail[-1]) > (SCALE * 2):
+            body.trail.append(body.pos.copy())
+            if len(body.trail) > body.maxtrailsize:
+                body.trail.pop(0)
 
 def world_to_screen(world_points): #[(x, y), (x, y)]
     screen_coords = []
@@ -209,7 +211,7 @@ while running:
                 dt *= SPEED_CHANGE
     #physics
     apply_acc(bodies)
-    update(bodies, dt)
+    update(bodies, dt, sim_time)
 
     #timer
     sim_time += dt

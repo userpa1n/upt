@@ -2,37 +2,29 @@ import numpy as np
 import pygame as pg
 pg.init()
 #figure out max speed and error and energy and stuff
-#restart
 #zoom to cursor
 #ui good and gui and ux and stuff
-#camera on center of mass
-#floating point in ui
 #click planet to see info
-#add planet(into orbit)
-
+#add planet(into orbit?)
+#seperate popup screen for gui or smth idk man
 
 #constants, init
-
-G = 6.6743e-11
-dt = 86400 #seconds between frames
-dt = 60
-FPS = 360
-bodies = []
-SCALE = 1.4e10 #m/px
-MIN_SCALE = 7.5e8
-MAX_SCALE = 1.4e10
-ZOOM_SPEED = 1/6
-SPEED_CHANGE = 1.5
-
 font = pg.font.SysFont("Arial", 20)
 screen_width, screen_height = 720, 720
 screen = pg.display.set_mode([screen_width, screen_height])
-#trails.set_alpha(5)
+
+
+G = 6.6743e-11
+dt = 60 #simulation seconds between frames, default value here
+FPS = 360
+bodies = []
+ZOOM_SPEED = 1/6
+SPEED_CHANGE = 1.5
 sim_time = 0 #seconds
 
 #classes, functions
 class Body:
-    def __init__(self, mass, pos, vel, acc=0.0, name='', color='blue'):
+    def __init__(self, mass, pos, vel, acc=0.0, name='', color='blue', maxtrailsize = 1000):
         self.mass = mass
         self.pos = np.array(pos, dtype=float)
         self.vel = np.array(vel, dtype=float)
@@ -40,12 +32,12 @@ class Body:
         self.name = name
         self.color = color
         self.trail = []
-        self.maxtrailsize = 1000
+        self.maxtrailsize = maxtrailsize
         bodies.append(self)
 
 
 def calculate_force(body1, body2):
-    softening = 1e4 #this is to avoid division by 0 and add stability
+    softening = 1e4 #this is to avoid division by 0 and add stability when r is really small
     r_vec = body2.pos-body1.pos #vector from body1 to body2
     r = np.linalg.norm(r_vec) #vector length
     F_mag = G * body1.mass * body2.mass / (r**2+softening) #newtons law of gravity
@@ -69,7 +61,7 @@ def update(bodies, dt):
         body.vel += body.acc*dt #v=at
         body.pos += body.vel*dt #s=vt
         '''
-    #velocity verlet: update position, then find acc[i+1] and use average(acc[i]+acc[i+1]) to find velocity
+    #velocity verlet: update position, then find acc[i+1] and use acc = (acc[i]+acc[i+1])/2 to find velocity
         body.pos += body.vel*dt + 0.5*body.acc*dt**2 # x += v0t + 0.5a*t**2
         old_accs.append(body.acc)
 
@@ -80,15 +72,16 @@ def update(bodies, dt):
         counter += 1
 
         #save trail info
-        if len(body.trail) == 0 or np.linalg.norm(body.pos - body.trail[-1]) > (SCALE * 2): #add new trail point only when planet has moved on screen
+        if len(body.trail) == 0 or np.linalg.norm(body.pos - body.trail[-1]) > SCALE*2: #add new trail point only when planet has moved on screen
             body.trail.append(body.pos.copy())
             if len(body.trail) > body.maxtrailsize:
                 body.trail.pop(0)
 
 def center_of_mass(bodies):
-    total_mass = sum(body.mass for body in bodies)
-    weighted_mass_sum = sum(body.pos*body.mass for body in bodies)
-    return weighted_mass_sum / total_mass
+    if bodies:
+        total_mass = sum(body.mass for body in bodies)
+        weighted_mass_sum = sum(body.pos*body.mass for body in bodies)
+        return weighted_mass_sum / total_mass
 
 def world_to_screen(world_point, center): #(x, y)
     relative_pos = world_point-center
@@ -118,8 +111,9 @@ def clear_sim():
 
 def load_solar_system():
     global SCALE, MIN_SCALE, MAX_SCALE, dt
-    clear_sim()
-    SCALE = 1.4e11
+    SCALE = 1.4e10
+    MIN_SCALE = 1e9
+    MAX_SCALE = 1.4e10
     dt = 86400
     # Sun
     Body(
@@ -185,14 +179,14 @@ def load_solar_system():
         pos=np.array([4.503e12, 0.0]),
         vel=np.array([0.0, 5_430]),
         name='Neptune',
-        color=(50, 100, 255))
+        color=(50, 100, 255),
+        maxtrailsize=2500)
 
 def load_figure_8():
     global SCALE, MIN_SCALE, MAX_SCALE, dt
-    clear_sim()
     dt = 300
     SCALE = 1e8
-    MIN_SCALE = 5e7
+    MIN_SCALE = 7e7
     MAX_SCALE = 5e8
     pos1 = (0.97000436, -0.24308753)
     vel1 = (0.46620368, 0.43236573)
@@ -220,39 +214,33 @@ def load_figure_8():
 
 def load_triangle():
     global SCALE, MIN_SCALE, MAX_SCALE, dt
-    clear_sim()
     dt = 300
-    SCALE = 1e9
-    MIN_SCALE = 1e8
-    MAX_SCALE = 1e10
+    SCALE = 1e8
+    MIN_SCALE = 6e7
+    MAX_SCALE = 5e8
     v_mag = 13900 
     M = 1e30
     R = 2e10
-    one = Body(
+    Body(
         mass=M,
         pos=np.array([R, 0.0]),
         vel=np.array([0.0, v_mag]),
         name='1', color=(255, 255, 0),
     )
-    two = Body(
+    Body(
         mass=M,
         pos=np.array([-R/2, R * np.sqrt(3)/2]),
         vel=np.array([-v_mag * np.sqrt(3)/2, -v_mag/2]),
         name='2', color=(255, 0, 255),
     )
-    three = Body(
+    Body(
         mass=M,
         pos=np.array([-R/2, -R * np.sqrt(3)/2]),
         vel=np.array([v_mag * np.sqrt(3)/2, -v_mag/2]),
         name='3', color=(0, 255, 255),
     )
-
+load_solar_system()
 #main pygame loop
-
-load_figure_8()
-#load_triangle()
-#load_solar_system()
-
 clock = pg.time.Clock()
 running = True
 while running:
@@ -268,13 +256,23 @@ while running:
             elif event.y < 0:
                 SCALE /= ZOOM_SPEED
             SCALE = max(MIN_SCALE, min(MAX_SCALE, SCALE))
-            #trails.fill('black') #clear trails
-        #speed
+        
         elif event.type == pg.KEYDOWN:
+            #speed
             if event.key == pg.K_LEFT:
                 dt /= SPEED_CHANGE
             elif event.key == pg.K_RIGHT:
                 dt *= SPEED_CHANGE
+            #presets
+            elif event.key == pg.K_1:
+                clear_sim()
+                load_solar_system()
+            elif event.key == pg.K_2:
+                clear_sim()
+                load_triangle()
+            elif event.key == pg.K_3:
+                clear_sim()
+                load_figure_8()
     
     #physics
     apply_acc(bodies)
@@ -288,24 +286,26 @@ while running:
     seconds = int(sim_time % 60)
     years = int(sim_time//86400//365)
 
+    #text
     timer_text = f"{years}y {days}d {hours:02}h {minutes:02}m {seconds:02}s"
-    speed_text = f'Speed: {dt} sec/frame'
-    fps_text = f'FPS: {FPS}'
-
+    speed_text = f'Speed: {round(dt, 4)} sec/frame'
+    fps_text = f'MAX_FPS: {FPS}'
+    tutorial_text = '1: solar system, 2: Lagrange triangle, 3:figure 8'
 
     timer_surf = font.render(timer_text, True, (255, 255, 255))
     speed_surf = font.render(speed_text, True, (255, 255, 255))
     fps_surf = font.render(fps_text, True, (255, 255, 255))
+    tutorial_surf = font.render(tutorial_text, True, (255, 255, 255))
 
-
-    #draw
+    #draw hud
     draw_bodies(bodies)
-    hud = pg.Surface((300, 70))  
+    hud = pg.Surface((600, 90))  
     hud.fill((0,0,0))             # black background
-    hud.set_alpha(200)            # semi-transparent
+    hud.set_alpha(100)            # semi-transparent
     hud.blit(timer_surf, (0,0))
     hud.blit(speed_surf, (0,20))
     hud.blit(fps_surf, (0,40))
+    hud.blit(tutorial_surf, (0, 60))
     screen.blit(hud, (0, 10))
 
 

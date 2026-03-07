@@ -15,19 +15,17 @@ pg.init()
 
 G = 6.6743e-11
 dt = 86400 #seconds between frames
-SCALE = 1.4e10
 FPS = 360
 bodies = []
-ZOOM_SPEED = 1/(5)
-MIN_SCALE = 1e9
+SCALE = 1.4e10 #m/px
+MIN_SCALE = 1.4e9
 MAX_SCALE = 1.4e10
+ZOOM_SPEED = 1/5
 SPEED_CHANGE = 1.5
 
 font = pg.font.SysFont("Arial", 20)
 screen_width, screen_height = 720, 720
 screen = pg.display.set_mode([screen_width, screen_height])
-trails = pg.Surface((screen_width, screen_height))
-trails.fill('black')
 #trails.set_alpha(5)
 sim_time = 0 #seconds
 
@@ -40,9 +38,12 @@ class Body:
         self.acc = np.array(acc, dtype=float)
         self.name = name
         self.color = color
+        self.trail = []
+        self.maxtrailsize = 500 #too small for further planets
         bodies.append(self)
 
-def gravity_force(body1, body2):
+
+def calculate_force(body1, body2):
     r_vec = body2.pos-body1.pos #vector from body1 to body2
     r = np.linalg.norm(r_vec) #vector length
     F_mag = G * body1.mass * body2.mass / r**2 #newtons law of gravity
@@ -53,30 +54,42 @@ def gravity_force(body1, body2):
 def apply_acc(bodies):
     for body in bodies:
         body.acc = np.zeros(2) #reset acc
-
         for body2 in bodies:
             if body == body2:
                 continue
-            body.acc += gravity_force(body, body2) / body.mass # a = f/m
+            body.acc += calculate_force(body, body2) / body.mass # a = f/m
 
 def update(bodies, dt):
     for body in bodies:
         body.vel += body.acc*dt
         body.pos += body.vel*dt
+        #save trail info
+        body.trail.append(body.pos.copy())
+        if len(body.trail) > body.maxtrailsize:
+            body.trail.pop(0)
+
+def world_to_screen(world_points): #[(x, y), (x, y)]
+    screen_coords = []
+    for world_point in world_points:
+        screen_coords.append((world_point[0]/SCALE + screen_width//2, world_point[1]/SCALE + screen_height//2))
+    return screen_coords
+
+def screen_to_world(screen_points): #[(x, y), (x, y)]
+    world_coords = []
+    for screen_point in screen_points:
+        world_coords.append(((screen_point[0]-screen_width//2)*SCALE, (screen_point[1]-screen_height//2)*SCALE))
+    return world_coords
 
 def draw_bodies(bodies):
     for body in bodies:
-        x = body.pos[0]/SCALE + screen_width//2
-        y = body.pos[1]/SCALE + screen_height//2
+        pos = world_to_screen([body.pos])[0]
         r = 5
-        pg.draw.circle(screen, body.color, (x, y), r)
-        pg.draw.circle(trails, body.color, (x, y), 1)
+        pg.draw.circle(screen, body.color, pos, r)
+        trail = world_to_screen(body.trail)
+        if len(trail) > 2:
+            pg.draw.lines(screen, body.color, False, trail, 1)
         name_surf = font.render(body.name, True, (255,255,255))
-        screen.blit(name_surf, (x+8, y-8))
-
-
-    
-
+        screen.blit(name_surf, (pos[0]+8, pos[1]-8))
 
 # Sun
 sun = Body(
@@ -85,7 +98,7 @@ sun = Body(
     vel=np.array([0.0, 0.0]),
     acc=np.zeros(2),
     name='Sun',
-    color=(255, 255, 0)
+    color=(255, 255, 0),
 )
 
 # Mercury
@@ -95,7 +108,7 @@ mercury = Body(
     vel=np.array([0.0, 47_400]),
     acc=np.zeros(2),
     name='Mercury',
-    color=(150, 150, 150)
+    color=(150, 150, 150),
 )
 
 # Venus
@@ -105,7 +118,7 @@ venus = Body(
     vel=np.array([0.0, 35_020]),
     acc=np.zeros(2),
     name='Venus',
-    color=(255, 200, 150)
+    color=(255, 200, 150),
 )
 
 # Earth
@@ -115,7 +128,7 @@ earth = Body(
     vel=np.array([0.0, 29_780]),
     acc=np.zeros(2),
     name='Earth',
-    color=(0, 150, 255)
+    color=(0, 150, 255),
 )
 
 # Mars
@@ -125,7 +138,7 @@ mars = Body(
     vel=np.array([0.0, 24_130]),
     acc=np.zeros(2),
     name='Mars',
-    color=(255, 100, 50)
+    color=(255, 100, 50),
 )
 
 # Jupiter
@@ -135,7 +148,7 @@ jupiter = Body(
     vel=np.array([0.0, 13_070]),
     acc=np.zeros(2),
     name='Jupiter',
-    color=(255, 150, 100)
+    color=(255, 150, 100),
 )
 
 # Saturn
@@ -145,7 +158,7 @@ saturn = Body(
     vel=np.array([0.0, 9_680]),
     acc=np.zeros(2),
     name='Saturn',
-    color=(255, 220, 180)
+    color=(255, 220, 180),
 )
 
 # Uranus
@@ -155,7 +168,7 @@ uranus = Body(
     vel=np.array([0.0, 6_800]),
     acc=np.zeros(2),
     name='Uranus',
-    color=(100, 200, 255)
+    color=(100, 200, 255),
 )
 
 # Neptune
@@ -165,15 +178,17 @@ neptune = Body(
     vel=np.array([0.0, 5_430]),
     acc=np.zeros(2),
     name='Neptune',
-    color=(50, 100, 255)
+    color=(50, 100, 255),
 )
+
+
 
 #main pygame loop
 clock = pg.time.Clock()
 running = True
 while running:
-    screen.blit(trails, (0, 0))
-
+    #screen.blit(trails, (0, 0))
+    screen.fill('black')
     #events
     for event in pg.event.get():
         if event.type == pg.QUIT:
@@ -185,7 +200,7 @@ while running:
             elif event.y < 0:
                 SCALE /= ZOOM_SPEED
             SCALE = max(MIN_SCALE, min(MAX_SCALE, SCALE))
-            trails.fill('black') #clear trails
+            #trails.fill('black') #clear trails
         #speed
         elif event.type == pg.KEYDOWN:
             if event.key == pg.K_LEFT:

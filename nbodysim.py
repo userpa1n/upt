@@ -15,14 +15,17 @@ pg.init()
 
 G = 6.6743e-11
 dt = 86400 #seconds between frames
-FPS = 360
+dt = 60
+FPS = 3600
 bodies = []
 SCALE = 1.4e10 #m/px
-MIN_SCALE = 1.4e9
+MIN_SCALE = 7.5e8
 MAX_SCALE = 1.4e10
-ZOOM_SPEED = 1/5
+ZOOM_SPEED = 1/6
 SPEED_CHANGE = 1.5
 
+SCALE=1e8
+MIN_SCALE=SCALE
 font = pg.font.SysFont("Arial", 20)
 screen_width, screen_height = 720, 720
 screen = pg.display.set_mode([screen_width, screen_height])
@@ -31,7 +34,7 @@ sim_time = 0 #seconds
 
 #classes, functions
 class Body:
-    def __init__(self, mass, pos, vel, acc, name, color):
+    def __init__(self, mass, pos, vel, acc=0.0, name='', color='blue'):
         self.mass = mass
         self.pos = np.array(pos, dtype=float)
         self.vel = np.array(vel, dtype=float)
@@ -44,9 +47,10 @@ class Body:
 
 
 def calculate_force(body1, body2):
+    softening = 1e4 #this is to avoid division by 0 and add stability
     r_vec = body2.pos-body1.pos #vector from body1 to body2
     r = np.linalg.norm(r_vec) #vector length
-    F_mag = G * body1.mass * body2.mass / r**2 #newtons law of gravity
+    F_mag = G * body1.mass * body2.mass / (r**2+softening) #newtons law of gravity
     direction = r_vec/r #unit vector from body1 to body2
     F = F_mag*direction #force vector from body1 to body2
     return F
@@ -59,40 +63,112 @@ def apply_acc(bodies):
                 continue
             body.acc += calculate_force(body, body2) / body.mass # a = f/m
 
-def update(bodies, dt, sim_time):
+def update(bodies, dt):
+    old_accs = []
     for body in bodies:
-        body.vel += body.acc*dt
-        body.pos += body.vel*dt
+        '''
+        #semi-implicit euler: update velocity before position
+        body.vel += body.acc*dt #v=at
+        body.pos += body.vel*dt #s=vt
+        '''
+    #velocity verlet: update position, then find acc[i+1] and use average(acc[i]+acc[i+1]) to find velocity
+        body.pos += body.vel*dt + 0.5*body.acc*dt**2 # x += v0t + 0.5a*t**2
+        old_accs.append(body.acc)
+
+    apply_acc(bodies)
+    counter = 0
+    for body in bodies:
+        body.vel += (old_accs[counter]+body.acc)/2 * dt
+        counter += 1
+
         #save trail info
-        #days = int((sim_time // 86400 ) % 365)
-        if len(body.trail) == 0 or np.linalg.norm(body.pos - body.trail[-1]) > (SCALE * 2):
+        if len(body.trail) == 0 or np.linalg.norm(body.pos - body.trail[-1]) > (SCALE * 2): #add new trail point only when planet has moved on screen
             body.trail.append(body.pos.copy())
             if len(body.trail) > body.maxtrailsize:
                 body.trail.pop(0)
 
-def world_to_screen(world_points): #[(x, y), (x, y)]
-    screen_coords = []
-    for world_point in world_points:
-        screen_coords.append((world_point[0]/SCALE + screen_width//2, world_point[1]/SCALE + screen_height//2))
-    return screen_coords
+def center_of_mass(bodies):
+    total_mass = sum(body.mass for body in bodies)
+    weighted_mass_sum = sum(body.pos*body.mass for body in bodies)
+    return weighted_mass_sum / total_mass
 
-def screen_to_world(screen_points): #[(x, y), (x, y)]
-    world_coords = []
-    for screen_point in screen_points:
-        world_coords.append(((screen_point[0]-screen_width//2)*SCALE, (screen_point[1]-screen_height//2)*SCALE))
-    return world_coords
+def world_to_screen(world_point, center): #(x, y)
+    relative_pos = world_point-center
+    screen_coord = (relative_pos[0]/SCALE + screen_width//2, relative_pos[1]/SCALE + screen_height//2)
+    return screen_coord
+
+def screen_to_world(screen_point): #(x, y)
+    world_coord = ((screen_point[0]-screen_width//2)*SCALE, (screen_point[1]-screen_height//2)*SCALE)
+    return world_coord
 
 def draw_bodies(bodies):
+    center = center_of_mass(bodies)
     for body in bodies:
-        pos = world_to_screen([body.pos])[0]
+        screen_pos = world_to_screen(body.pos, center)
         r = 5
-        pg.draw.circle(screen, body.color, pos, r)
-        trail = world_to_screen(body.trail)
+        pg.draw.circle(screen, body.color, screen_pos, r)
+        trail = [world_to_screen(point, center) for point in body.trail]
         if len(trail) > 2:
             pg.draw.lines(screen, body.color, False, trail, 1)
         name_surf = font.render(body.name, True, (255,255,255))
-        screen.blit(name_surf, (pos[0]+8, pos[1]-8))
+        screen.blit(name_surf, (screen_pos[0]+8, screen_pos[1]-8))
 
+#figure 8
+scale_pos = 2e10 
+M = 1e30
+# Precise velocity scale derived from G, Mass, and Distance
+
+scale_vel = np.sqrt(G*M/scale_pos)
+
+# The "Magic" Ratios for a Figure-8
+x1, y1 = 0.97000436, -0.24308753
+vx1, vy1 = 0.46620368, 0.43236573
+
+one = Body(
+    mass=M,
+    pos=np.array([x1 * scale_pos, y1 * scale_pos]),
+    vel=np.array([vx1 * scale_vel, vy1 * scale_vel]),
+    name='1', color=(255, 255, 0),
+)
+two = Body(
+    mass=M,
+    pos=np.array([-x1 * scale_pos, -y1 * scale_pos]),
+    vel=np.array([vx1 * scale_vel, vy1 * scale_vel]),
+    name='2', color=(255, 0, 255),
+)
+three = Body(
+    mass=M,
+    pos=np.array([0.0, 0.0]),
+    vel=np.array([-2 * vx1 * scale_vel, -2 * vy1 * scale_vel]),
+    name='3', color=(0, 255, 255),
+)
+
+'''
+#lagrange triangle
+v_mag = 13900 
+M = 1e30
+R = 2e10
+one = Body(
+    mass=M,
+    pos=np.array([R, 0.0]),
+    vel=np.array([0.0, v_mag]),
+    name='1', color=(255, 255, 0),
+)
+two = Body(
+    mass=M,
+    pos=np.array([-R/2, R * np.sqrt(3)/2]),
+    vel=np.array([-v_mag * np.sqrt(3)/2, -v_mag/2]),
+    name='2', color=(255, 0, 255),
+)
+three = Body(
+    mass=M,
+    pos=np.array([-R/2, -R * np.sqrt(3)/2]),
+    vel=np.array([v_mag * np.sqrt(3)/2, -v_mag/2]),
+    name='3', color=(0, 255, 255),
+)
+'''
+"""
+#solar system
 # Sun
 sun = Body(
     mass=1.989e30,
@@ -182,7 +258,7 @@ neptune = Body(
     name='Neptune',
     color=(50, 100, 255),
 )
-
+"""
 
 
 #main pygame loop
@@ -209,9 +285,10 @@ while running:
                 dt /= SPEED_CHANGE
             elif event.key == pg.K_RIGHT:
                 dt *= SPEED_CHANGE
+    
     #physics
     apply_acc(bodies)
-    update(bodies, dt, sim_time)
+    update(bodies, dt)
 
     #timer
     sim_time += dt

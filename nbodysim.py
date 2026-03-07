@@ -4,7 +4,7 @@ pg.init()
 #figure out max speed and error and energy and stuff
 #restart
 #zoom to cursor
-#presets and ui good and gui and ux and stuff
+#ui good and gui and ux and stuff
 #camera on center of mass
 #floating point in ui
 #click planet to see info
@@ -16,7 +16,7 @@ pg.init()
 G = 6.6743e-11
 dt = 86400 #seconds between frames
 dt = 60
-FPS = 3600
+FPS = 360
 bodies = []
 SCALE = 1.4e10 #m/px
 MIN_SCALE = 7.5e8
@@ -24,8 +24,6 @@ MAX_SCALE = 1.4e10
 ZOOM_SPEED = 1/6
 SPEED_CHANGE = 1.5
 
-SCALE=1e8
-MIN_SCALE=SCALE
 font = pg.font.SysFont("Arial", 20)
 screen_width, screen_height = 720, 720
 screen = pg.display.set_mode([screen_width, screen_height])
@@ -113,159 +111,151 @@ def draw_bodies(bodies):
         name_surf = font.render(body.name, True, (255,255,255))
         screen.blit(name_surf, (screen_pos[0]+8, screen_pos[1]-8))
 
-#figure 8
-scale_pos = 2e10 
-M = 1e30
-# Precise velocity scale derived from G, Mass, and Distance
+def clear_sim():
+    global bodies, sim_time
+    bodies.clear()
+    sim_time = 0
 
-scale_vel = np.sqrt(G*M/scale_pos)
+def load_solar_system():
+    global SCALE, MIN_SCALE, MAX_SCALE, dt
+    clear_sim()
+    SCALE = 1.4e11
+    dt = 86400
+    # Sun
+    Body(
+        mass=1.989e30,
+        pos=np.array([0.0, 0.0]),
+        vel=np.array([0.0, 0.0]),
+        name='Sun',
+        color=(255, 255, 0),
+    )
+    # Mercury
+    Body(
+        mass=3.3e23,
+        pos=np.array([5.79e10, 0.0]),
+        vel=np.array([0.0, 47_400]),
+        name='Mercury',
+        color=(150, 150, 150))
+    # Venus
+    Body(
+        mass=4.87e24,
+        pos=np.array([1.082e11, 0.0]),
+        vel=np.array([0.0, 35_020]),
+        acc=np.zeros(2),
+        name='Venus',
+        color=(255, 200, 150))
+    # Earth
+    Body(
+        mass=5.97e24,
+        pos=np.array([1.496e11, 0.0]),
+        vel=np.array([0.0, 29_780]),
+        name='Earth',
+        color=(0, 150, 255))
+    # Mars
+    Body(
+        mass=6.42e23,
+        pos=np.array([2.279e11, 0.0]),
+        vel=np.array([0.0, 24_130]),
+        name='Mars',
+        color=(255, 100, 50))
+    # Jupiter
+    Body(
+        mass=1.898e27,
+        pos=np.array([7.785e11, 0.0]),
+        vel=np.array([0.0, 13_070]),
+        name='Jupiter',
+        color=(255, 150, 100))
+    # Saturn
+    Body(
+        mass=5.683e26,
+        pos=np.array([1.433e12, 0.0]),
+        vel=np.array([0.0, 9_680]),
+        name='Saturn',
+        color=(255, 220, 180))
+    # Uranus
+    Body(
+        mass=8.681e25,
+        pos=np.array([2.877e12, 0.0]),
+        vel=np.array([0.0, 6_800]),
+        name='Uranus',
+        color=(100, 200, 255))
+    # Neptune
+    Body(
+        mass=1.024e26,
+        pos=np.array([4.503e12, 0.0]),
+        vel=np.array([0.0, 5_430]),
+        name='Neptune',
+        color=(50, 100, 255))
 
-# The "Magic" Ratios for a Figure-8
-x1, y1 = 0.97000436, -0.24308753
-vx1, vy1 = 0.46620368, 0.43236573
+def load_figure_8():
+    global SCALE, MIN_SCALE, MAX_SCALE, dt
+    clear_sim()
+    dt = 300
+    SCALE = 1e8
+    MIN_SCALE = 5e7
+    MAX_SCALE = 5e8
+    pos1 = (0.97000436, -0.24308753)
+    vel1 = (0.46620368, 0.43236573)
+    M = 1e30
+    pos_scale = 2e10
+    vel_scale = np.sqrt(G*M/pos_scale)
+    Body(
+        mass=M, 
+        pos = np.array([pos1[0]*pos_scale, pos1[1]*pos_scale]), 
+        vel = np.array([vel1[0]*vel_scale, vel1[1]*vel_scale]),
+        name = '1',
+        color=(0, 255, 255))
+    Body(
+        mass=M, 
+        pos = np.array([0.0, 0.0]), 
+        vel = np.array([-2 * vel1[0]*vel_scale, -2 * vel1[1]*vel_scale]),
+        name = '2',
+        color=(0, 255, 0))
+    Body(
+        mass=M, 
+        pos = np.array([-pos1[0]*pos_scale, -pos1[1]*pos_scale]), 
+        vel = np.array([vel1[0]*vel_scale, vel1[1]*vel_scale]),
+        name = '3',
+        color=(255, 0, 0))
 
-one = Body(
-    mass=M,
-    pos=np.array([x1 * scale_pos, y1 * scale_pos]),
-    vel=np.array([vx1 * scale_vel, vy1 * scale_vel]),
-    name='1', color=(255, 255, 0),
-)
-two = Body(
-    mass=M,
-    pos=np.array([-x1 * scale_pos, -y1 * scale_pos]),
-    vel=np.array([vx1 * scale_vel, vy1 * scale_vel]),
-    name='2', color=(255, 0, 255),
-)
-three = Body(
-    mass=M,
-    pos=np.array([0.0, 0.0]),
-    vel=np.array([-2 * vx1 * scale_vel, -2 * vy1 * scale_vel]),
-    name='3', color=(0, 255, 255),
-)
-
-'''
-#lagrange triangle
-v_mag = 13900 
-M = 1e30
-R = 2e10
-one = Body(
-    mass=M,
-    pos=np.array([R, 0.0]),
-    vel=np.array([0.0, v_mag]),
-    name='1', color=(255, 255, 0),
-)
-two = Body(
-    mass=M,
-    pos=np.array([-R/2, R * np.sqrt(3)/2]),
-    vel=np.array([-v_mag * np.sqrt(3)/2, -v_mag/2]),
-    name='2', color=(255, 0, 255),
-)
-three = Body(
-    mass=M,
-    pos=np.array([-R/2, -R * np.sqrt(3)/2]),
-    vel=np.array([v_mag * np.sqrt(3)/2, -v_mag/2]),
-    name='3', color=(0, 255, 255),
-)
-'''
-"""
-#solar system
-# Sun
-sun = Body(
-    mass=1.989e30,
-    pos=np.array([0.0, 0.0]),
-    vel=np.array([0.0, 0.0]),
-    acc=np.zeros(2),
-    name='Sun',
-    color=(255, 255, 0),
-)
-
-# Mercury
-mercury = Body(
-    mass=3.3e23,
-    pos=np.array([5.79e10, 0.0]),
-    vel=np.array([0.0, 47_400]),
-    acc=np.zeros(2),
-    name='Mercury',
-    color=(150, 150, 150),
-)
-
-# Venus
-venus = Body(
-    mass=4.87e24,
-    pos=np.array([1.082e11, 0.0]),
-    vel=np.array([0.0, 35_020]),
-    acc=np.zeros(2),
-    name='Venus',
-    color=(255, 200, 150),
-)
-
-# Earth
-earth = Body(
-    mass=5.97e24,
-    pos=np.array([1.496e11, 0.0]),
-    vel=np.array([0.0, 29_780]),
-    acc=np.zeros(2),
-    name='Earth',
-    color=(0, 150, 255),
-)
-
-# Mars
-mars = Body(
-    mass=6.42e23,
-    pos=np.array([2.279e11, 0.0]),
-    vel=np.array([0.0, 24_130]),
-    acc=np.zeros(2),
-    name='Mars',
-    color=(255, 100, 50),
-)
-
-# Jupiter
-jupiter = Body(
-    mass=1.898e27,
-    pos=np.array([7.785e11, 0.0]),
-    vel=np.array([0.0, 13_070]),
-    acc=np.zeros(2),
-    name='Jupiter',
-    color=(255, 150, 100),
-)
-
-# Saturn
-saturn = Body(
-    mass=5.683e26,
-    pos=np.array([1.433e12, 0.0]),
-    vel=np.array([0.0, 9_680]),
-    acc=np.zeros(2),
-    name='Saturn',
-    color=(255, 220, 180),
-)
-
-# Uranus
-uranus = Body(
-    mass=8.681e25,
-    pos=np.array([2.877e12, 0.0]),
-    vel=np.array([0.0, 6_800]),
-    acc=np.zeros(2),
-    name='Uranus',
-    color=(100, 200, 255),
-)
-
-# Neptune
-neptune = Body(
-    mass=1.024e26,
-    pos=np.array([4.503e12, 0.0]),
-    vel=np.array([0.0, 5_430]),
-    acc=np.zeros(2),
-    name='Neptune',
-    color=(50, 100, 255),
-)
-"""
-
+def load_triangle():
+    global SCALE, MIN_SCALE, MAX_SCALE, dt
+    clear_sim()
+    dt = 300
+    SCALE = 1e9
+    MIN_SCALE = 1e8
+    MAX_SCALE = 1e10
+    v_mag = 13900 
+    M = 1e30
+    R = 2e10
+    one = Body(
+        mass=M,
+        pos=np.array([R, 0.0]),
+        vel=np.array([0.0, v_mag]),
+        name='1', color=(255, 255, 0),
+    )
+    two = Body(
+        mass=M,
+        pos=np.array([-R/2, R * np.sqrt(3)/2]),
+        vel=np.array([-v_mag * np.sqrt(3)/2, -v_mag/2]),
+        name='2', color=(255, 0, 255),
+    )
+    three = Body(
+        mass=M,
+        pos=np.array([-R/2, -R * np.sqrt(3)/2]),
+        vel=np.array([v_mag * np.sqrt(3)/2, -v_mag/2]),
+        name='3', color=(0, 255, 255),
+    )
 
 #main pygame loop
+
+load_figure_8()
+#load_triangle()
+#load_solar_system()
+
 clock = pg.time.Clock()
 running = True
 while running:
-    #screen.blit(trails, (0, 0))
     screen.fill('black')
     #events
     for event in pg.event.get():

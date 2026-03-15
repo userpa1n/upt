@@ -11,6 +11,13 @@ pg.init()
 #kaamera massikeskmes ei tööta
 
 
+#CONTROLS
+#SPACE - pause
+#LEFT/RIGHT ARROW - slow/speed up (change dt)
+#1, 2, 3 - load preset
+#SCROLL - zoom
+
+
 #constants, init
 font = pg.font.SysFont("Arial", 20)
 screen_width, screen_height = 720, 720
@@ -26,6 +33,7 @@ SPEED_CHANGE = 1.5
 sim_time = 0 #seconds
 error = 0 #joules
 starting_energy = 0
+paused = False
 #classes, functions
 class Body:
     def __init__(self, mass, pos, vel, acc=0.0, name='', color='blue', maxtrailsize = 1000):
@@ -41,11 +49,10 @@ class Body:
 
 
 def calculate_force(body1, body2):
-    #softening = 1e4 #this is to avoid division by 0 and add stability when r is really small
-    softening = 0
+    softening = 1e4 #this is to avoid division by 0 and add stability when r is really small
     r_vec = body2.pos-body1.pos #vector from body1 to body2
     r = np.linalg.norm(r_vec) #vector length
-    F_mag = G * body1.mass * body2.mass / (r**2+softening) #newtons law of gravity
+    F_mag = G * body1.mass * body2.mass / (r**2+softening**2) #newtons law of gravity
     direction = r_vec/r #unit vector from body1 to body2
     F = F_mag*direction #force vector from body1 to body2
     return F
@@ -91,7 +98,7 @@ def kinetic_energy(body):
     return body.mass*np.linalg.norm(body.vel)**2 / 2
 
 def potential_energy(body1, body2):
-    softening = 0
+    softening = 1e4
     return -G*body1.mass*body2.mass / (np.linalg.norm(body2.pos-body1.pos)+softening)
 
 def energy(bodies):
@@ -140,7 +147,7 @@ def clear_sim():
     sim_time = 0
 
 def load_solar_system():
-    global SCALE, MIN_SCALE, MAX_SCALE, dt
+    global SCALE, MIN_SCALE, MAX_SCALE, dt, starting_energy
     SCALE = 1.4e10
     MIN_SCALE = 1e9
     MAX_SCALE = 1.4e10
@@ -211,9 +218,9 @@ def load_solar_system():
         name='Neptune',
         color=(50, 100, 255),
         maxtrailsize=2500)
-
+    starting_energy = energy(bodies)
 def load_figure_8():
-    global SCALE, MIN_SCALE, MAX_SCALE, dt
+    global SCALE, MIN_SCALE, MAX_SCALE, dt, starting_energy
     dt = 300
     SCALE = 1e8
     MIN_SCALE = 7e7
@@ -241,9 +248,9 @@ def load_figure_8():
         vel = np.array([vel1[0]*vel_scale, vel1[1]*vel_scale]),
         name = '3',
         color=(255, 0, 0))
-
+    starting_energy = energy(bodies)
 def load_triangle():
-    global SCALE, MIN_SCALE, MAX_SCALE, dt
+    global SCALE, MIN_SCALE, MAX_SCALE, dt, starting_energy
     dt = 300
     SCALE = 1e8
     MIN_SCALE = 6e7
@@ -255,20 +262,18 @@ def load_triangle():
         mass=M,
         pos=np.array([R, 0.0]),
         vel=np.array([0.0, v_mag]),
-        name='1', color=(255, 255, 0),
-    )
+        name='1', color=(255, 255, 0))
     Body(
         mass=M,
         pos=np.array([-R/2, R * np.sqrt(3)/2]),
         vel=np.array([-v_mag * np.sqrt(3)/2, -v_mag/2]),
-        name='2', color=(255, 0, 255),
-    )
+        name='2', color=(255, 0, 255))
     Body(
         mass=M,
         pos=np.array([-R/2, -R * np.sqrt(3)/2]),
         vel=np.array([v_mag * np.sqrt(3)/2, -v_mag/2]),
-        name='3', color=(0, 255, 255),
-    )
+        name='3', color=(0, 255, 255))
+    starting_energy = energy(bodies)
 load_solar_system()
 starting_energy = energy(bodies)
 #main pygame loop
@@ -294,27 +299,27 @@ while running:
                 dt /= SPEED_CHANGE
             elif event.key == pg.K_RIGHT:
                 dt *= SPEED_CHANGE
+            elif event.key == pg.K_SPACE:
+                paused = not paused
+                
             #presets
             elif event.key == pg.K_1:
                 clear_sim()
                 load_solar_system()
-                starting_energy = energy(bodies)
             elif event.key == pg.K_2:
                 clear_sim()
                 load_triangle()
-                starting_energy = energy(bodies)
             elif event.key == pg.K_3:
                 clear_sim()
                 load_figure_8()
-                starting_energy = energy(bodies)
     
-    #physics
-    update(bodies, dt)
-
-    error = (energy(bodies)-starting_energy)/starting_energy*100
-
+    if not paused:
+        #physics
+        update(bodies, dt)
+        error = (energy(bodies)-starting_energy)/starting_energy*100
+        sim_time += dt
     #timer
-    sim_time += dt
+    
     days = int((sim_time // 86400 ) % 365)
     hours = int((sim_time % 86400) // 3600)
     minutes = int((sim_time % 3600) // 60)

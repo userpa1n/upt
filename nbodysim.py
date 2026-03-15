@@ -2,12 +2,13 @@ import numpy as np
 import pygame as pg
 pg.init()
 #figure out max speed and error and energy and stuff - should work now
+#add softening back
 #zoom to cursor
 #ui good and gui and ux and stuff
 #click planet to see info
 #add planet(into orbit?)
 #seperate popup screen for gui or smth idk man
-#kaamera massikeskmes vist ei tööta?
+#kaamera massikeskmes ei tööta
 
 
 #constants, init

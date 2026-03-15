@@ -1,14 +1,14 @@
 import numpy as np
 import pygame as pg
-pg.init()
-#figure out max speed and error and energy and stuff - should work now
-#add softening back
+
+
+#kaamera massikeskmes ei tööta, äkki alguses com=(0,0)
 #zoom to cursor
 #ui good and gui and ux and stuff
-#click planet to see info
+#click planet to see info?
 #add planet(into orbit?)
 #seperate popup screen for gui or smth idk man
-#kaamera massikeskmes ei tööta
+
 
 
 #CONTROLS
@@ -18,23 +18,33 @@ pg.init()
 #SCROLL - zoom
 
 
-#constants, init
+
+
+#
+# ---CONSTANTS, INIT---
+#
+
+pg.init()
 font = pg.font.SysFont("Arial", 20)
 screen_width, screen_height = 720, 720
 screen = pg.display.set_mode([screen_width, screen_height])
 
 
 G = 6.6743e-11
-dt = 60 #simulation seconds between frames, default value here
-FPS = 360
+dt = 60 #simulation seconds between frames, default value here, but otherwise set in preset function
+FPS = 360 #max fps(or atleast should be)
 bodies = []
 ZOOM_SPEED = 1/6
 SPEED_CHANGE = 1.5
 sim_time = 0 #seconds
 error = 0 #joules
 starting_energy = 0
-paused = False
-#classes, functions
+paused = True
+
+#
+# ---CLASSES, FUNCTIONS---
+#
+
 class Body:
     def __init__(self, mass, pos, vel, acc=0.0, name='', color='blue', maxtrailsize = 1000):
         self.mass = mass
@@ -57,7 +67,7 @@ def calculate_force(body1, body2):
     F = F_mag*direction #force vector from body1 to body2
     return F
 
-def apply_acc(bodies):
+def apply_acc(bodies): #find and apply acceleration
     for body in bodies:
         body.acc = np.zeros(2)
     for i in range(len(bodies)):
@@ -69,7 +79,7 @@ def apply_acc(bodies):
             body2.acc += -force/body2.mass
     
 
-def update(bodies, dt):
+def update(bodies, dt): #physics update+trail info
     old_accs = []
     for body in bodies:
         '''
@@ -78,7 +88,7 @@ def update(bodies, dt):
         body.pos += body.vel*dt #s=vt
         apply_acc(bodies)
         '''
-    #velocity verlet: find acc[i], update position, then find acc[i+1] and use acc = (acc[i]+acc[i+1])/2 to find velocity[i]
+    #velocity verlet: find acc[i], update position, then find acc[i+1] and use acc = (acc[i]+acc[i+1])/2 to find velocity[i+1]
         body.pos += body.vel*dt + 0.5*body.acc*dt**2 # x += v0t + 0.5a*t**2
         old_accs.append(body.acc)
 
@@ -112,8 +122,6 @@ def energy(bodies):
             potential += potential_energy(body1, body2)
     return kinetic + potential
 
-
-
 def center_of_mass(bodies):
     if bodies:
         total_mass = sum(body.mass for body in bodies)
@@ -146,6 +154,8 @@ def clear_sim():
     bodies.clear()
     sim_time = 0
 
+#PRESETS
+
 def load_solar_system():
     global SCALE, MIN_SCALE, MAX_SCALE, dt, starting_energy
     SCALE = 1.4e10
@@ -158,8 +168,7 @@ def load_solar_system():
         pos=np.array([0.0, 0.0]),
         vel=np.array([0.0, 0.0]),
         name='Sun',
-        color=(255, 255, 0),
-    )
+        color=(255, 255, 0),)
     # Mercury
     Body(
         mass=3.3e23,
@@ -219,6 +228,7 @@ def load_solar_system():
         color=(50, 100, 255),
         maxtrailsize=2500)
     starting_energy = energy(bodies)
+
 def load_figure_8():
     global SCALE, MIN_SCALE, MAX_SCALE, dt, starting_energy
     dt = 300
@@ -249,6 +259,7 @@ def load_figure_8():
         name = '3',
         color=(255, 0, 0))
     starting_energy = energy(bodies)
+
 def load_triangle():
     global SCALE, MIN_SCALE, MAX_SCALE, dt, starting_energy
     dt = 300
@@ -274,17 +285,25 @@ def load_triangle():
         vel=np.array([v_mag * np.sqrt(3)/2, -v_mag/2]),
         name='3', color=(0, 255, 255))
     starting_energy = energy(bodies)
+
+#starting config
 load_solar_system()
 starting_energy = energy(bodies)
-#main pygame loop
+
 clock = pg.time.Clock()
 running = True
+
+#
+# ---MAIN LOOP---
+#
+
 while running:
     screen.fill('black')
     #events
     for event in pg.event.get():
         if event.type == pg.QUIT:
             running = False
+
         #zoom
         elif event.type == pg.MOUSEWHEEL:
             if event.y > 0:
@@ -292,9 +311,10 @@ while running:
             elif event.y < 0:
                 SCALE /= ZOOM_SPEED
             SCALE = max(MIN_SCALE, min(MAX_SCALE, SCALE))
-        
+
+        #keyboard inputs
         elif event.type == pg.KEYDOWN:
-            #speed
+            #speed change and pause
             if event.key == pg.K_LEFT:
                 dt /= SPEED_CHANGE
             elif event.key == pg.K_RIGHT:
@@ -318,8 +338,8 @@ while running:
         update(bodies, dt)
         error = (energy(bodies)-starting_energy)/starting_energy*100
         sim_time += dt
+        
     #timer
-    
     days = int((sim_time // 86400 ) % 365)
     hours = int((sim_time % 86400) // 3600)
     minutes = int((sim_time % 3600) // 60)

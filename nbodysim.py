@@ -65,11 +65,12 @@ def update(bodies, dt):
     old_accs = []
     for body in bodies:
         '''
-        #semi-implicit euler: update velocity before position
+    #semi-implicit euler: update velocity before position
         body.vel += body.acc*dt #v=at
         body.pos += body.vel*dt #s=vt
+        apply_acc(bodies)
         '''
-    #velocity verlet: update position, then find acc[i+1] and use acc = (acc[i]+acc[i+1])/2 to find velocity
+    #velocity verlet: find acc[i], update position, then find acc[i+1] and use acc = (acc[i]+acc[i+1])/2 to find velocity[i]
         body.pos += body.vel*dt + 0.5*body.acc*dt**2 # x += v0t + 0.5a*t**2
         old_accs.append(body.acc)
 
@@ -78,8 +79,8 @@ def update(bodies, dt):
     for body in bodies:
         body.vel += (old_accs[counter]+body.acc)/2 * dt
         counter += 1
-
-        #save trail info
+    
+    #save trail info
         if len(body.trail) == 0 or np.linalg.norm(body.pos - body.trail[-1]) > SCALE*2: #add new trail point only when planet has moved on screen
             body.trail.append(body.pos.copy())
             if len(body.trail) > body.maxtrailsize:
@@ -324,7 +325,7 @@ while running:
     speed_text = f'Speed: {round(dt, 4)} sec/frame'
     fps_text = f'MAX_FPS: {FPS}'
     tutorial_text = '1: solar system, 2: Lagrange triangle, 3:figure 8'
-    energy_text = f'Energy error: {error:.2e}%'
+    energy_text = f'Energy error: {error:.1e}%'
 
     timer_surf = font.render(timer_text, True, (255, 255, 255))
     speed_surf = font.render(speed_text, True, (255, 255, 255))

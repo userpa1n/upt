@@ -1,12 +1,14 @@
 import numpy as np
 import pygame as pg
 pg.init()
-#figure out max speed and error and energy and stuff
+#figure out max speed and error and energy and stuff - should work now
 #zoom to cursor
 #ui good and gui and ux and stuff
 #click planet to see info
 #add planet(into orbit?)
 #seperate popup screen for gui or smth idk man
+#kaamera massikeskmes vist ei tööta?
+
 
 #constants, init
 font = pg.font.SysFont("Arial", 20)
@@ -21,7 +23,8 @@ bodies = []
 ZOOM_SPEED = 1/6
 SPEED_CHANGE = 1.5
 sim_time = 0 #seconds
-
+error = 0 #joules
+starting_energy = 0
 #classes, functions
 class Body:
     def __init__(self, mass, pos, vel, acc=0.0, name='', color='blue', maxtrailsize = 1000):
@@ -37,7 +40,8 @@ class Body:
 
 
 def calculate_force(body1, body2):
-    softening = 1e4 #this is to avoid division by 0 and add stability when r is really small
+    #softening = 1e4 #this is to avoid division by 0 and add stability when r is really small
+    softening = 0
     r_vec = body2.pos-body1.pos #vector from body1 to body2
     r = np.linalg.norm(r_vec) #vector length
     F_mag = G * body1.mass * body2.mass / (r**2+softening) #newtons law of gravity
@@ -47,11 +51,15 @@ def calculate_force(body1, body2):
 
 def apply_acc(bodies):
     for body in bodies:
-        body.acc = np.zeros(2) #reset acc
-        for body2 in bodies:
-            if body == body2:
-                continue
-            body.acc += calculate_force(body, body2) / body.mass # a = f/m
+        body.acc = np.zeros(2)
+    for i in range(len(bodies)):
+        body1 = bodies[i]
+        for j in range(i+1, len(bodies)):
+            body2 = bodies[j]
+            force = calculate_force(body1, body2)
+            body1.acc += force/body1.mass
+            body2.acc += -force/body2.mass
+    
 
 def update(bodies, dt):
     old_accs = []
@@ -76,6 +84,26 @@ def update(bodies, dt):
             body.trail.append(body.pos.copy())
             if len(body.trail) > body.maxtrailsize:
                 body.trail.pop(0)
+
+def kinetic_energy(body):
+    return body.mass*np.linalg.norm(body.vel)**2 / 2
+
+def potential_energy(body1, body2):
+    softening = 0
+    return -G*body1.mass*body2.mass / (np.linalg.norm(body2.pos-body1.pos)+softening)
+
+def energy(bodies):
+    kinetic = 0
+    potential = 0
+    for i in range(len(bodies)):
+        body1 = bodies[i]
+        kinetic += kinetic_energy(body1)
+        for j in range(i+1, len(bodies)):
+            body2 = bodies[j]
+            potential += potential_energy(body1, body2)
+    return kinetic + potential
+
+
 
 def center_of_mass(bodies):
     if bodies:
@@ -240,6 +268,7 @@ def load_triangle():
         name='3', color=(0, 255, 255),
     )
 load_solar_system()
+starting_energy = energy(bodies)
 #main pygame loop
 clock = pg.time.Clock()
 running = True
@@ -267,16 +296,20 @@ while running:
             elif event.key == pg.K_1:
                 clear_sim()
                 load_solar_system()
+                starting_energy = energy(bodies)
             elif event.key == pg.K_2:
                 clear_sim()
                 load_triangle()
+                starting_energy = energy(bodies)
             elif event.key == pg.K_3:
                 clear_sim()
                 load_figure_8()
+                starting_energy = energy(bodies)
     
     #physics
-    apply_acc(bodies)
     update(bodies, dt)
+
+    error = (energy(bodies)-starting_energy)/starting_energy*100
 
     #timer
     sim_time += dt
@@ -291,21 +324,24 @@ while running:
     speed_text = f'Speed: {round(dt, 4)} sec/frame'
     fps_text = f'MAX_FPS: {FPS}'
     tutorial_text = '1: solar system, 2: Lagrange triangle, 3:figure 8'
+    energy_text = f'Energy error: {error:.2e}%'
 
     timer_surf = font.render(timer_text, True, (255, 255, 255))
     speed_surf = font.render(speed_text, True, (255, 255, 255))
     fps_surf = font.render(fps_text, True, (255, 255, 255))
     tutorial_surf = font.render(tutorial_text, True, (255, 255, 255))
+    energy_surf = font.render(energy_text, True, (255, 255, 255))
 
     #draw hud
     draw_bodies(bodies)
-    hud = pg.Surface((600, 90))  
+    hud = pg.Surface((600, 120))  
     hud.fill((0,0,0))             # black background
     hud.set_alpha(100)            # semi-transparent
     hud.blit(timer_surf, (0,0))
     hud.blit(speed_surf, (0,20))
     hud.blit(fps_surf, (0,40))
     hud.blit(tutorial_surf, (0, 60))
+    hud.blit(energy_surf, (0, 80))
     screen.blit(hud, (0, 10))
 
 

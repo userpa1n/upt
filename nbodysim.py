@@ -2,7 +2,7 @@ import numpy as np
 import pygame as pg
 
 
-#make center of mass be at 0, 0 at the start as well, also along with this make function to see velocity relative to any body
+#make center of mass be at (0, 0) at the start as well, also along with this make function to see velocity relative to any body
 #zoom to cursor
 #ui good and gui and ux and stuff
 #click planet to see info?
@@ -10,6 +10,7 @@ import pygame as pg
 #seperate popup screen for gui or smth idk man
 #leap years not accounted for in time
 #find actual solar system data and be able to draw that as comparison
+#add collision? maybe just pause and make the bodies red or something
 
 #CONTROLS
 #SPACE - pause

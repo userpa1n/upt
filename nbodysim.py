@@ -2,14 +2,14 @@ import numpy as np
 import pygame as pg
 
 
-#kaamera massikeskmes ei tööta, äkki alguses com=(0,0)
+#make center of mass be at 0, 0 at the start as well, also along with this make function to see velocity relative to any body
 #zoom to cursor
 #ui good and gui and ux and stuff
 #click planet to see info?
 #add planet(into orbit?)
 #seperate popup screen for gui or smth idk man
-
-
+#leap years not accounted for in time
+#find actual solar system data and be able to draw that as comparison
 
 #CONTROLS
 #SPACE - pause
@@ -88,7 +88,7 @@ def update(bodies, dt): #physics update+trail info
         body.pos += body.vel*dt #s=vt
         apply_acc(bodies)
         '''
-    #velocity verlet: find acc[i], update position, then find acc[i+1] and use acc = (acc[i]+acc[i+1])/2 to find velocity[i+1]
+    #velocity verlet: find acc[i], update position, then find acc[i+1] and use (acc[i]+acc[i+1])/2 to find velocity[i+1]
         body.pos += body.vel*dt + 0.5*body.acc*dt**2 # x += v0t + 0.5a*t**2
         old_accs.append(body.acc)
 
@@ -99,7 +99,7 @@ def update(bodies, dt): #physics update+trail info
         counter += 1
     
     #save trail info
-        if len(body.trail) == 0 or np.linalg.norm(body.pos - body.trail[-1]) > SCALE*2: #add new trail point only when planet has moved on screen
+        if len(body.trail) == 0 or np.linalg.norm(body.pos - body.trail[-1]) > SCALE*2: #add new trail point only when planet has moved at least 2px on screen
             body.trail.append(body.pos.copy())
             if len(body.trail) > body.maxtrailsize:
                 body.trail.pop(0)
@@ -153,10 +153,10 @@ def clear_sim():
     global bodies, sim_time
     bodies.clear()
     sim_time = 0
-
-#PRESETS
-
-def load_solar_system():
+#
+# ---PRESETS---
+#
+def load_solar_system(): #data: chatgpt(just wanted something to test, this is temporary)
     global SCALE, MIN_SCALE, MAX_SCALE, dt, starting_energy
     SCALE = 1.4e10
     MIN_SCALE = 1e9
@@ -298,7 +298,7 @@ running = True
 #
 
 while running:
-    screen.fill('black')
+    screen.fill('black') #clear screen
     #events
     for event in pg.event.get():
         if event.type == pg.QUIT:
@@ -372,5 +372,5 @@ while running:
     screen.blit(hud, (0, 10))
 
 
-    pg.display.flip()
-    clock.tick(FPS)
+    pg.display.flip() #update screen
+    clock.tick(FPS) #limit fps

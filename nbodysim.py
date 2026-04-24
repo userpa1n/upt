@@ -2,7 +2,7 @@ import numpy as np
 import pygame as pg
 
 #actually utilize numpy
-#make center of mass be at (0, 0) at the start as well, function to see velocity relative to any body
+#function to see velocity relative to any body
 #zoom to cursor
 #better ui(seperate popup atleast for controls?)
 #click planet to see info?
@@ -33,9 +33,9 @@ screen = pg.display.set_mode([screen_width, screen_height])
 
 G = 6.6743e-11
 dt = 60 #simulation seconds between frames, default value here, but otherwise set in preset function
-FPS = 360 #max fps(or atleast should be)
+FPS = 144 #max fps(or atleast should be)
 bodies = []
-ZOOM_SPEED = 0.7 #how much zooms in/out, smaller=more zoom, has to be <1
+ZOOM_SPEED = 0.6 #how much zooms in/out, smaller=more zoom, has to be <1
 SMOOTHING_FACTOR = 15 #bigger=more smooth zoom
 SPEED_CHANGE = 1.5
 sim_time = 0 #seconds
@@ -145,8 +145,8 @@ def world_to_screen(world_point, center): #(x, y)
     screen_coord = (relative_pos[0]/SCALE + screen_width//2, relative_pos[1]/SCALE + screen_height//2)
     return screen_coord
 
-def screen_to_world(screen_point): #(x, y)
-    world_coord = ((screen_point[0]-screen_width//2)*SCALE, (screen_point[1]-screen_height//2)*SCALE)
+def screen_to_world(screen_point, center): #(x, y)
+    world_coord = ((screen_point[0]-screen_width//2)*SCALE+center[0], (screen_point[1]-screen_height//2)*SCALE+center[1])
     return world_coord
 
 def draw_bodies(bodies):
@@ -394,3 +394,5 @@ while running:
 
     pg.display.flip() #update screen
     clock.tick(FPS) #limit fps
+
+pg.quit()

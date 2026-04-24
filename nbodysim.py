@@ -1,13 +1,13 @@
 import numpy as np
 import pygame as pg
 
-
-#make center of mass be at (0, 0) at the start as well, also along with this make function to see velocity relative to any body
+#actually utilize numpy
+#make center of mass be at (0, 0) at the start as well, function to see velocity relative to any body
 #zoom to cursor
-#ui good and gui and ux and stuff
+#better ui(seperate popup atleast for controls?)
 #click planet to see info?
-#add planet(into orbit?)
-#seperate popup screen for gui or smth idk man
+#add planet
+#save data, position and error using matplotlib?
 #leap years not accounted for in time
 #find actual solar system data and be able to draw that as comparison
 #add collision? maybe just pause and make the bodies red or something
@@ -26,7 +26,7 @@ import pygame as pg
 #
 
 pg.init()
-font = pg.font.SysFont("Arial", 20)
+font = pg.font.SysFont("Roboto", 25)
 screen_width, screen_height = 720, 720
 screen = pg.display.set_mode([screen_width, screen_height])
 
@@ -35,7 +35,8 @@ G = 6.6743e-11
 dt = 60 #simulation seconds between frames, default value here, but otherwise set in preset function
 FPS = 360 #max fps(or atleast should be)
 bodies = []
-ZOOM_SPEED = 1/6
+ZOOM_SPEED = 0.7 #how much zooms in/out, smaller=more zoom, has to be <1
+SMOOTHING_FACTOR = 15 #bigger=more smooth zoom
 SPEED_CHANGE = 1.5
 sim_time = 0 #seconds
 error = 0 #joules
@@ -100,7 +101,7 @@ def update(bodies, dt): #physics update+trail info
         counter += 1
     
     #save trail info
-        if len(body.trail) == 0 or np.linalg.norm(body.pos - body.trail[-1]) > SCALE*2: #add new trail point only when planet has moved at least 2px on screen
+        if len(body.trail) == 0 or np.linalg.norm(body.pos - body.trail[-1]) > SCALE*1: #add new trail point only when planet has moved at least 1px on screen
             body.trail.append(body.pos.copy())
             if len(body.trail) > body.maxtrailsize:
                 body.trail.pop(0)
@@ -129,6 +130,16 @@ def center_of_mass(bodies):
         weighted_mass_sum = sum(body.pos*body.mass for body in bodies)
         return weighted_mass_sum / total_mass
 
+def zero_initial_momentum(bodies): #center of mass stays at 0, 0
+    total_mass = sum(body.mass for body in bodies)
+    momentum = np.zeros(2) #=m*v
+    for body in bodies:
+        momentum += body.mass*body.vel
+    avg_momentum = momentum/total_mass
+    
+    for body in bodies:
+        body.vel -= avg_momentum
+    
 def world_to_screen(world_point, center): #(x, y)
     relative_pos = world_point-center
     screen_coord = (relative_pos[0]/SCALE + screen_width//2, relative_pos[1]/SCALE + screen_height//2)
@@ -158,8 +169,9 @@ def clear_sim():
 # ---PRESETS---
 #
 def load_solar_system(): #data: chatgpt(just wanted something to test, this is temporary)
-    global SCALE, MIN_SCALE, MAX_SCALE, dt, starting_energy
+    global SCALE, MIN_SCALE, MAX_SCALE, dt, starting_energy, target_scale
     SCALE = 1.4e10
+    target_scale = SCALE
     MIN_SCALE = 1e9
     MAX_SCALE = 1.4e10
     dt = 86400
@@ -228,12 +240,12 @@ def load_solar_system(): #data: chatgpt(just wanted something to test, this is t
         name='Neptune',
         color=(50, 100, 255),
         maxtrailsize=2500)
-    starting_energy = energy(bodies)
 
 def load_figure_8():
-    global SCALE, MIN_SCALE, MAX_SCALE, dt, starting_energy
+    global SCALE, MIN_SCALE, MAX_SCALE, dt, starting_energy, target_scale
     dt = 300
     SCALE = 1e8
+    target_scale = SCALE
     MIN_SCALE = 7e7
     MAX_SCALE = 5e8
     pos1 = (0.97000436, -0.24308753)
@@ -259,12 +271,12 @@ def load_figure_8():
         vel = np.array([vel1[0]*vel_scale, vel1[1]*vel_scale]),
         name = '3',
         color=(255, 0, 0))
-    starting_energy = energy(bodies)
 
 def load_triangle():
-    global SCALE, MIN_SCALE, MAX_SCALE, dt, starting_energy
+    global SCALE, MIN_SCALE, MAX_SCALE, dt, starting_energy, target_scale
     dt = 300
     SCALE = 1e8
+    target_scale = SCALE
     MIN_SCALE = 6e7
     MAX_SCALE = 5e8
     v_mag = 13900 
@@ -285,10 +297,10 @@ def load_triangle():
         pos=np.array([-R/2, -R * np.sqrt(3)/2]),
         vel=np.array([v_mag * np.sqrt(3)/2, -v_mag/2]),
         name='3', color=(0, 255, 255))
-    starting_energy = energy(bodies)
 
 #starting config
 load_solar_system()
+zero_initial_momentum(bodies)
 starting_energy = energy(bodies)
 
 clock = pg.time.Clock()
@@ -300,6 +312,7 @@ running = True
 
 while running:
     screen.fill('black') #clear screen
+    SCALE += (target_scale-SCALE)*(1/SMOOTHING_FACTOR) #lerp, every frame zooms 1/smoothing_factor*100% of the way to target_scale
     #events
     for event in pg.event.get():
         if event.type == pg.QUIT:
@@ -308,10 +321,10 @@ while running:
         #zoom
         elif event.type == pg.MOUSEWHEEL:
             if event.y > 0:
-                SCALE *= ZOOM_SPEED
+                target_scale = SCALE * ZOOM_SPEED
             elif event.y < 0:
-                SCALE /= ZOOM_SPEED
-            SCALE = max(MIN_SCALE, min(MAX_SCALE, SCALE))
+                target_scale = SCALE / ZOOM_SPEED
+            target_scale = max(MIN_SCALE, min(MAX_SCALE, target_scale))#cap target scale between MIN_SCALE and MAX_SCALE
 
         #keyboard inputs
         elif event.type == pg.KEYDOWN:
@@ -327,12 +340,18 @@ while running:
             elif event.key == pg.K_1:
                 clear_sim()
                 load_solar_system()
+                zero_initial_momentum(bodies)
+                starting_energy = energy(bodies)
             elif event.key == pg.K_2:
                 clear_sim()
                 load_triangle()
+                zero_initial_momentum(bodies)
+                starting_energy = energy(bodies)
             elif event.key == pg.K_3:
                 clear_sim()
                 load_figure_8()
+                zero_initial_momentum(bodies)
+                starting_energy = energy(bodies)
     
     if not paused:
         #physics

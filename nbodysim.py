@@ -301,6 +301,7 @@ def load_triangle():
 #starting config
 load_solar_system()
 zero_initial_momentum(bodies)
+apply_acc(bodies)
 starting_energy = energy(bodies)
 
 clock = pg.time.Clock()
@@ -341,16 +342,19 @@ while running:
                 clear_sim()
                 load_solar_system()
                 zero_initial_momentum(bodies)
+                apply_acc(bodies)
                 starting_energy = energy(bodies)
             elif event.key == pg.K_2:
                 clear_sim()
                 load_triangle()
                 zero_initial_momentum(bodies)
+                apply_acc(bodies)
                 starting_energy = energy(bodies)
             elif event.key == pg.K_3:
                 clear_sim()
                 load_figure_8()
                 zero_initial_momentum(bodies)
+                apply_acc(bodies)
                 starting_energy = energy(bodies)
     
     if not paused:

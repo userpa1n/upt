@@ -1,7 +1,7 @@
 import numpy as np
 import pygame as pg
 
-#actually utilize numpy
+
 #function to see velocity relative to any body
 #zoom to cursor
 #better ui(seperate popup atleast for controls?)
@@ -33,7 +33,7 @@ screen = pg.display.set_mode([screen_width, screen_height])
 
 G = 6.6743e-11
 dt = 60 #simulation seconds between frames, default value here, but otherwise set in preset function
-FPS = 144 #max fps(or atleast should be)
+FPS = 240 #max fps(or atleast should be)
 bodies = []
 ZOOM_SPEED = 0.6 #how much zooms in/out, smaller=more zoom, has to be <1
 SMOOTHING_FACTOR = 15 #bigger=more smooth zoom
@@ -42,13 +42,14 @@ sim_time = 0 #seconds
 error = 0 #joules
 starting_energy = 0
 paused = True
+selected_body = None
 
 #
 # ---CLASSES, FUNCTIONS---
 #
 
 class Body:
-    def __init__(self, mass, pos, vel, acc=0.0, name='', color='blue', maxtrailsize = 1000):
+    def __init__(self, mass, pos, vel, acc=0.0, name='', color='blue', maxtrailsize = 2500):
         self.mass = mass
         self.pos = np.array(pos, dtype=float)
         self.vel = np.array(vel, dtype=float)
@@ -68,7 +69,7 @@ def calculate_force(body1, body2):
     direction = r_vec/r #unit vector from body1 to body2
     F = F_mag*direction #force vector from body1 to body2
     return F
-
+'''
 def apply_acc(bodies): #find and apply acceleration
     for body in bodies:
         body.acc = np.zeros(2)
@@ -79,7 +80,24 @@ def apply_acc(bodies): #find and apply acceleration
             force = calculate_force(body1, body2)
             body1.acc += force/body1.mass
             body2.acc += -force/body2.mass
+'''
+def apply_acc_numpy(bodies):
+    pos = np.array([body.pos for body in bodies])
+    mass = np.array([body.mass for body in bodies])
     
+    #pos_vectors[i, j] = vector from body i to body j
+    #(N, 1, 2) - (1, N, 2) = (N, N, 2)
+    pos_vectors = pos[np.newaxis, :, :] - pos[:, np.newaxis, :]
+    
+    softening = 1e4 #avoid division by 0
+    
+    dist = np.sqrt(np.sum(pos_vectors**2, axis = -1) + softening**2) #axis=-1 = innermost array
+    
+    #a[i] = ( G * m[j] * r_vec )/( dist**3 )
+    acc_vectors = (G * mass[np.newaxis, :, np.newaxis] * pos_vectors) / dist[:, :, np.newaxis]**3
+    accs = np.sum(acc_vectors, axis = 1) #accs[i] = (acc_ x, acc_y) for bodies[i]
+    for i, body in enumerate(bodies):
+        body.acc = accs[i]
 
 def update(bodies, dt): #physics update+trail info
     old_accs = []
@@ -90,15 +108,15 @@ def update(bodies, dt): #physics update+trail info
         body.pos += body.vel*dt #s=vt
         apply_acc(bodies)
         '''
-    #velocity verlet: find acc[i], update position, then find acc[i+1] and use (acc[i]+acc[i+1])/2 to find velocity[i+1]
+    #velocity verlet: update position, then find acc[i+1] and use (acc[i]+acc[i+1])/2 to find velocity[i+1]
+        #update position using [i]
         body.pos += body.vel*dt + 0.5*body.acc*dt**2 # x += v0t + 0.5a*t**2
         old_accs.append(body.acc)
-
-    apply_acc(bodies)
-    counter = 0
-    for body in bodies:
-        body.vel += (old_accs[counter]+body.acc)/2 * dt
-        counter += 1
+    #find new acceleration
+    apply_acc_numpy(bodies)
+    #vel[i+1] = vel[i] + (acc[i]+acc[i+1])/2 * dt
+    for i, body in enumerate(bodies):
+        body.vel += (old_accs[i]+body.acc)/2 * dt
     
     #save trail info
         if len(body.trail) == 0 or np.linalg.norm(body.pos - body.trail[-1]) > SCALE*1: #add new trail point only when planet has moved at least 1px on screen
@@ -149,8 +167,8 @@ def screen_to_world(screen_point, center): #(x, y)
     world_coord = ((screen_point[0]-screen_width//2)*SCALE+center[0], (screen_point[1]-screen_height//2)*SCALE+center[1])
     return world_coord
 
-def draw_bodies(bodies):
-    center = center_of_mass(bodies)
+def draw_bodies(bodies, follow = None):
+    center = follow.pos if follow is not None else center_of_mass(bodies)
     for body in bodies:
         screen_pos = world_to_screen(body.pos, center)
         r = 5
@@ -162,9 +180,22 @@ def draw_bodies(bodies):
         screen.blit(name_surf, (screen_pos[0]+8, screen_pos[1]-8))
 
 def clear_sim():
-    global bodies, sim_time
+    global bodies, sim_time, selected_body
     bodies.clear()
     sim_time = 0
+    selected_body = None 
+    
+def find_closest_body(bodies, world_point):
+    closest = None
+    min_dist = float('inf')
+    for body in bodies:
+        dist = np.linalg.norm(body.pos - world_point)
+        if dist < min_dist:
+            min_dist = dist
+            closest = body
+            
+    return closest
+    
 #
 # ---PRESETS---
 #
@@ -301,7 +332,7 @@ def load_triangle():
 #starting config
 load_solar_system()
 zero_initial_momentum(bodies)
-apply_acc(bodies)
+apply_acc_numpy(bodies)
 starting_energy = energy(bodies)
 
 clock = pg.time.Clock()
@@ -315,7 +346,11 @@ while running:
     screen.fill('black') #clear screen
     SCALE += (target_scale-SCALE)*(1/SMOOTHING_FACTOR) #lerp, every frame zooms 1/smoothing_factor*100% of the way to target_scale
     #events
-    for event in pg.event.get():
+    try: #bug in pygame according to claude, this catches that
+        events = pg.event.get()
+    except SystemError:
+        events = []
+    for event in events:
         if event.type == pg.QUIT:
             running = False
 
@@ -326,7 +361,18 @@ while running:
             elif event.y < 0:
                 target_scale = SCALE / ZOOM_SPEED
             target_scale = max(MIN_SCALE, min(MAX_SCALE, target_scale))#cap target scale between MIN_SCALE and MAX_SCALE
-
+        #select body to follow
+        elif event.type == pg.MOUSEBUTTONDOWN and event.button == 1:
+            if selected_body == None:
+                mouse_world = np.array(screen_to_world(event.pos, center_of_mass(bodies)))
+            else:
+                mouse_world = np.array(screen_to_world(event.pos, selected_body.pos))
+            closest_body = find_closest_body(bodies, mouse_world)
+            if np.linalg.norm(closest_body.pos-mouse_world) < SCALE*20:
+                selected_body = closest_body
+            else:
+                selected_body = None
+            
         #keyboard inputs
         elif event.type == pg.KEYDOWN:
             #speed change and pause
@@ -342,19 +388,19 @@ while running:
                 clear_sim()
                 load_solar_system()
                 zero_initial_momentum(bodies)
-                apply_acc(bodies)
+                apply_acc_numpy(bodies)
                 starting_energy = energy(bodies)
             elif event.key == pg.K_2:
                 clear_sim()
                 load_triangle()
                 zero_initial_momentum(bodies)
-                apply_acc(bodies)
+                apply_acc_numpy(bodies)
                 starting_energy = energy(bodies)
             elif event.key == pg.K_3:
                 clear_sim()
                 load_figure_8()
                 zero_initial_momentum(bodies)
-                apply_acc(bodies)
+                apply_acc_numpy(bodies)
                 starting_energy = energy(bodies)
     
     if not paused:
@@ -369,11 +415,14 @@ while running:
     minutes = int((sim_time % 3600) // 60)
     seconds = int(sim_time % 60)
     years = int(sim_time//86400//365)
-
+    
+    fps = clock.get_fps()
+    
     #text
     timer_text = f"{years}y {days}d {hours:02}h {minutes:02}m {seconds:02}s"
     speed_text = f'Speed: {round(dt, 4)} sec/frame'
-    fps_text = f'MAX_FPS: {FPS}'
+    fps_text = f'FPS: {round(fps)}'
+    maxfps_text = f'MAX_FPS: {FPS}'
     tutorial_text = '1: solar system, 2: Lagrange triangle, 3:figure 8'
     energy_text = f'Energy error: {error:.1e}%'
 
@@ -382,9 +431,10 @@ while running:
     fps_surf = font.render(fps_text, True, (255, 255, 255))
     tutorial_surf = font.render(tutorial_text, True, (255, 255, 255))
     energy_surf = font.render(energy_text, True, (255, 255, 255))
-
+    
+    
     #draw hud
-    draw_bodies(bodies)
+    draw_bodies(bodies, follow = selected_body)
     hud = pg.Surface((600, 120))  
     hud.fill((0,0,0))             # black background
     hud.set_alpha(100)            # semi-transparent
@@ -398,5 +448,6 @@ while running:
 
     pg.display.flip() #update screen
     clock.tick(FPS) #limit fps
+    
 
 pg.quit()

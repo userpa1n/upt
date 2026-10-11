@@ -1,8 +1,8 @@
 import numpy as np
 import pygame as pg
 
-
-#function to see velocity relative to any body
+#TODO:
+#function to see velocity relative to any body(well i have camera following bodies now, could just make trails behave differently but thats too janky i think)
 #zoom to cursor
 #better ui(seperate popup atleast for controls?)
 #click planet to see info?
@@ -17,6 +17,7 @@ import pygame as pg
 #LEFT/RIGHT ARROW - slow/speed up (change dt)
 #1, 2, 3 - load preset
 #SCROLL - zoom
+#left click - follow a body
 
 
 
@@ -27,7 +28,7 @@ import pygame as pg
 
 pg.init()
 font = pg.font.SysFont("Roboto", 25)
-screen_width, screen_height = 720, 720
+screen_width, screen_height = 1080, 720
 screen = pg.display.set_mode([screen_width, screen_height])
 
 
@@ -49,7 +50,7 @@ selected_body = None
 #
 
 class Body:
-    def __init__(self, mass, pos, vel, acc=0.0, name='', color='blue', maxtrailsize = 2500):
+    def __init__(self, mass, pos, vel, acc=0.0, name='', color='blue', maxtrailsize = 2000):
         self.mass = mass
         self.pos = np.array(pos, dtype=float)
         self.vel = np.array(vel, dtype=float)

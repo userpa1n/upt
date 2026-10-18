@@ -19,4 +19,8 @@ How much energy has been lost or gained since the start(the error)
   
 ### Other details  
 Requires Python with the libraries Pygame and NumPy.  
-To use the simulation, simply run [nbodysim.py](nbodysim.py)
+To use the simulation, simply run [nbodysim.py](nbodysim.py)  
+  
+Here's a preview as of 18/10/26:
+![N-Body Simulation](simulation.gif)
+

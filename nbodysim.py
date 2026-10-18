@@ -130,7 +130,7 @@ def kinetic_energy(body):
 
 def potential_energy(body1, body2):
     softening = 1e4
-    return -G*body1.mass*body2.mass / (np.linalg.norm(body2.pos-body1.pos)+softening)
+    return -G*body1.mass*body2.mass / (np.sqrt(np.linalg.norm(body2.pos-body1.pos)**2+softening**2))
 
 def energy(bodies):
     kinetic = 0
@@ -154,10 +154,10 @@ def zero_initial_momentum(bodies): #center of mass stays at 0, 0
     momentum = np.zeros(2) #=m*v
     for body in bodies:
         momentum += body.mass*body.vel
-    avg_momentum = momentum/total_mass
+    avg_velocity = momentum/total_mass
     
     for body in bodies:
-        body.vel -= avg_momentum
+        body.vel -= avg_velocity
     
 def world_to_screen(world_point, center): #(x, y)
     relative_pos = world_point-center
@@ -200,7 +200,7 @@ def find_closest_body(bodies, world_point):
 #
 # ---PRESETS---
 #
-def load_solar_system(): #data: chatgpt(just wanted something to test, this is temporary)
+def load_solar_system():
     global SCALE, MIN_SCALE, MAX_SCALE, dt, starting_energy, target_scale
     SCALE = 1.4e10
     target_scale = SCALE

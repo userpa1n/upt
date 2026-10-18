@@ -272,7 +272,7 @@ def load_solar_system(): #data: chatgpt(just wanted something to test, this is t
         name='Neptune',
         color=(50, 100, 255),
         maxtrailsize=2500)
-
+# https://arxiv.org/pdf/math/0011268 
 def load_figure_8():
     global SCALE, MIN_SCALE, MAX_SCALE, dt, starting_energy, target_scale
     dt = 300
@@ -311,9 +311,10 @@ def load_triangle():
     target_scale = SCALE
     MIN_SCALE = 6e7
     MAX_SCALE = 5e8
-    v_mag = 13900 
+    
     M = 1e30
     R = 2e10
+    v_mag = np.sqrt(G*M/(R*np.sqrt(3))) 
     Body(
         mass=M,
         pos=np.array([R, 0.0]),
